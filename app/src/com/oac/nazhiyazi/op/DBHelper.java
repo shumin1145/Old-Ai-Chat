@@ -215,6 +215,25 @@ public class DBHelper extends SQLiteOpenHelper {
         cv.put("content", newContent == null ? "" : newContent);
         cv.put("reasoning", newReasoning == null ? "" : newReasoning);
         db.update(T_MESSAGES, cv, "id=?", new String[]{String.valueOf(messageId)});
+        // 同步更新对话预览，避免侧边栏卡在 "..." 占位
+        Cursor c = null;
+        try {
+            c = db.query(T_MESSAGES, new String[]{"conversation_id"}, "id=?",
+                    new String[]{String.valueOf(messageId)}, null, null, null, "1");
+            if (c.moveToFirst()) {
+                long convId = c.getLong(0);
+                ContentValues convCv = new ContentValues();
+                convCv.put("updated_at", System.currentTimeMillis());
+                String preview = newContent;
+                if (preview != null && preview.length() > 60) {
+                    preview = preview.substring(0, 60) + "…";
+                }
+                convCv.put("preview", preview == null ? "" : preview.replace("\n", " "));
+                db.update(T_CONVERSATIONS, convCv, "id=?", new String[]{String.valueOf(convId)});
+            }
+        } finally {
+            if (c != null) c.close();
+        }
     }
 
     public void deleteMessagesAfter(long conversationId, long messageId) {

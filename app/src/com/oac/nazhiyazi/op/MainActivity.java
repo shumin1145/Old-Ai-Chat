@@ -2,12 +2,10 @@ package com.oac.nazhiyazi.op;
 
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.ClipData;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Configuration;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -21,15 +19,28 @@ import android.widget.AbsListView;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
+
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
+import org.spongycastle.util.encoders.Base64;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Random;
+
+import com.oac.nazhiyazi.op.util.ClipboardUtil;
 
 /**
  * 主对话界面。兼容 Android 2.3 (API 9+)
@@ -53,8 +64,31 @@ public class MainActivity extends Activity {
     private TextView mTvModelName;
     private ListView mListMessages;
     private TextView mTvEmpty;
+
+    // 主页空状态欢迎语池：每次随机一句、一轮内不重复，增加可玩性（API1 安全）
+    private static final int[] WELCOME_RES = {
+            R.string.welcome_1, R.string.welcome_2, R.string.welcome_3, R.string.welcome_4,
+            R.string.welcome_5, R.string.welcome_6, R.string.welcome_7, R.string.welcome_8
+    };
+    private List<Integer> mWelcomeQueue;
+    private int mWelcomeLast = -1;
+    private final Random mWelcomeRand = new Random();
     private EditText mEtInput;
     private Button mBtnSend;
+    private Button mBtnAttachImage;
+    private LinearLayout mLayoutImageLabels;
+    private TextView mTvImageLabel1;
+    private TextView mTvImageLabel2;
+    private TextView mTvImageLabel3;
+    private static final int REQUEST_CODE_PICK_IMAGE = 1001;
+    private static final int MAX_IMAGES = 3;
+    /** 待发送图片的 Base64 dataURL，发送后清空 */
+    private final List<String> mInputImages = new ArrayList<String>();
+    /** 待发送图片的原始 URI，用于点击查看原图 */
+    private final List<Uri> mImageUris = new ArrayList<Uri>();
+    /** 图片标签单击/双击判定 */
+    private final Handler mImageLabelHandler = new Handler();
+    private int mPendingLabelIndex = -1;
 
     // 侧边栏
     private View mDrawer;
@@ -109,6 +143,7 @@ public class MainActivity extends Activity {
         AIRequest request;
         long aiMessageId;
         boolean placeholderShown;
+        Handler streamHandler;
     }
 
     @Override
@@ -380,8 +415,15 @@ public class MainActivity extends Activity {
     private void initViews() {
         mTvTitle = (TextView) findViewById(R.id.tv_title);
         mTvModelName = (TextView) findViewById(R.id.tv_model_name);
+        // 点击模型名快速切换
+        if (mTvModelName != null) {
+            mTvModelName.setOnClickListener(new View.OnClickListener() {
+                @Override public void onClick(View v) { showModelPicker(); }
+            });
+        }
         mListMessages = (ListView) findViewById(R.id.list_messages);
         mTvEmpty = (TextView) findViewById(R.id.tv_empty);
+        applyRandomWelcome();
         mEtInput = (EditText) findViewById(R.id.et_input);
         mBtnSend = (Button) findViewById(R.id.btn_send);
 
@@ -445,6 +487,63 @@ public class MainActivity extends Activity {
             });
         }
 
+        // 图片按钮：选取图片（多模态）
+        mBtnAttachImage = (Button) findViewById(R.id.btn_attach_image);
+        mLayoutImageLabels = (LinearLayout) findViewById(R.id.layout_image_labels);
+        mTvImageLabel1 = (TextView) findViewById(R.id.tv_image_label_1);
+        mTvImageLabel2 = (TextView) findViewById(R.id.tv_image_label_2);
+        mTvImageLabel3 = (TextView) findViewById(R.id.tv_image_label_3);
+        if (mBtnAttachImage != null) {
+            mBtnAttachImage.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try {
+                        if (mInputImages.size() >= MAX_IMAGES) {
+                            Toast.makeText(MainActivity.this, getString(R.string.msg_max_images, MAX_IMAGES), Toast.LENGTH_SHORT).show();
+                            return;
+                        }
+                        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                        intent.setType("image/*");
+                        startActivityForResult(Intent.createChooser(intent, getString(R.string.btn_image)),
+                                REQUEST_CODE_PICK_IMAGE);
+                    } catch (Throwable t) {
+                        Toast.makeText(MainActivity.this, safeMsg(t), Toast.LENGTH_SHORT).show();
+                    }
+                }
+            });
+        }
+        // 图片标签：单击提示，双击删除
+        View.OnClickListener imageLabelClick = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                int idx = -1;
+                if (v == mTvImageLabel1) idx = 0;
+                else if (v == mTvImageLabel2) idx = 1;
+                else if (v == mTvImageLabel3) idx = 2;
+                if (idx < 0 || idx >= mImageUris.size()) return;
+                if (mPendingLabelIndex == idx) {
+                    // 双击 → 删除
+                    mImageLabelHandler.removeCallbacksAndMessages(null);
+                    mPendingLabelIndex = -1;
+                    removeImage(idx);
+                } else {
+                    // 单击 → 提示双击删除
+                    mImageLabelHandler.removeCallbacksAndMessages(null);
+                    mPendingLabelIndex = idx;
+                    mImageLabelHandler.postDelayed(new Runnable() {
+                        @Override
+                        public void run() {
+                            mPendingLabelIndex = -1;
+                            Toast.makeText(MainActivity.this, R.string.msg_double_tap_delete, Toast.LENGTH_SHORT).show();
+                        }
+                    }, 300);
+                }
+            }
+        };
+        if (mTvImageLabel1 != null) mTvImageLabel1.setOnClickListener(imageLabelClick);
+        if (mTvImageLabel2 != null) mTvImageLabel2.setOnClickListener(imageLabelClick);
+        if (mTvImageLabel3 != null) mTvImageLabel3.setOnClickListener(imageLabelClick);
+
         // 输入框变化：空内容禁用发送按钮
         if (mEtInput != null) {
             mEtInput.addTextChangedListener(new TextWatcher() {
@@ -466,7 +565,7 @@ public class MainActivity extends Activity {
                     try {
                         ChatMessage m = mChatAdapter.getItem(position);
                         if (m != null && m.content != null && m.content.length() > 0) {
-                            copyToClipboard(m.content);
+                            ClipboardUtil.copyText(MainActivity.this, m.content);
                             Toast.makeText(MainActivity.this, R.string.msg_copied, Toast.LENGTH_SHORT).show();
                         }
                     } catch (Throwable t) {
@@ -503,8 +602,19 @@ public class MainActivity extends Activity {
         try {
             String text = mEtInput.getText().toString().trim();
             boolean waiting = mPendingRequests.containsKey(mCurrentConversationId);
-            boolean enabled = text.length() > 0 && !waiting;
+            boolean hasModel = mSettings.getActiveModel() != null;
+            boolean enabled = (text.length() > 0 || !mInputImages.isEmpty()) && !waiting && hasModel;
             mBtnSend.setEnabled(enabled);
+            // 图片按钮：无模型或当前对话请求中时禁用
+            if (mBtnAttachImage != null) {
+                boolean imgEnabled = hasModel && !waiting;
+                mBtnAttachImage.setEnabled(imgEnabled);
+                if (mInputImages.size() > 0 && imgEnabled) {
+                    mBtnAttachImage.setBackgroundResource(R.drawable.bg_attach_blue);
+                } else {
+                    mBtnAttachImage.setBackgroundResource(R.drawable.bg_attach_gray);
+                }
+            }
         } catch (Throwable t) {
             // ignore
         }
@@ -757,6 +867,66 @@ public class MainActivity extends Activity {
         }
     }
 
+    /** 弹出模型选择对话框——安卓 2.3 兼容 UI */
+    private void showModelPicker() {
+        if (mSettings == null) return;
+        final List<ModelConfig> models;
+        try {
+            models = mSettings.getAllModels();
+        } catch (Throwable t) {
+            toast(safeMsg(t));
+            return;
+        }
+        if (models == null || models.isEmpty()) {
+            Toast.makeText(this, R.string.msg_no_model, Toast.LENGTH_SHORT).show();
+            return;
+        }
+        final ModelConfig current;
+        try {
+            current = mSettings.getActiveModel();
+        } catch (Throwable t) {
+            toast(safeMsg(t));
+            return;
+        }
+        final String[] names = new String[models.size()];
+        int selIdx = 0;
+        for (int i = 0; i < models.size(); i++) {
+            String n = models.get(i).name;
+            names[i] = (n != null && n.length() > 0) ? n : ("Model " + (i + 1));
+            if (current != null && models.get(i).id != null &&
+                    models.get(i).id.equals(current.id)) selIdx = i;
+        }
+        final int initialSel = selIdx;
+        final android.app.AlertDialog.Builder b = new android.app.AlertDialog.Builder(this);
+        b.setTitle(R.string.model_picker_title);
+        // 可滚动列表 + 单选
+        b.setSingleChoiceItems(names, selIdx, new DialogInterface.OnClickListener() {
+            @Override public void onClick(DialogInterface d, int which) {
+                // 点击不立即关闭，只记录选中
+                // 使用 setSingleChoiceItems 自动管理选中状态
+            }
+        });
+        b.setPositiveButton(android.R.string.ok, new DialogInterface.OnClickListener() {
+            @Override public void onClick(DialogInterface d, int which) {
+                android.widget.ListView lv = ((android.app.AlertDialog) d).getListView();
+                if (lv == null) { d.dismiss(); return; }
+                int pos = lv.getCheckedItemPosition();
+                if (pos < 0 || pos >= models.size()) { d.dismiss(); return; }
+                try {
+                    mSettings.setActiveModelId(models.get(pos).id);
+                    updateModelDisplay();
+                } catch (Throwable t) {
+                    toast(safeMsg(t));
+                }
+                d.dismiss();
+            }
+        });
+        b.setNegativeButton(android.R.string.cancel, null);
+        final android.app.AlertDialog dlg = b.create();
+        dlg.setCanceledOnTouchOutside(true); // 点外面自动取消（不应用）
+        dlg.show();
+    }
+
     private void refreshConversationList() {
         if (mConvAdapter == null) return;
         try {
@@ -782,6 +952,37 @@ public class MainActivity extends Activity {
         }
     }
 
+    /**
+     * 主页空状态（无消息时）展示的欢迎语：从 WELCOME_RES 里随机挑一句，
+     * 用洗牌队列保证一轮（8 句）内不重复，且与上一轮末句不连续重复。
+     */
+    private void applyRandomWelcome() {
+        if (mTvEmpty == null) return;
+        if (mWelcomeQueue == null) mWelcomeQueue = new ArrayList<Integer>();
+        if (mWelcomeQueue.isEmpty()) {
+            for (int i = 0; i < WELCOME_RES.length; i++) {
+                mWelcomeQueue.add(Integer.valueOf(i));
+            }
+            // Fisher-Yates 洗牌（不依赖 Collections.shuffle，API1 安全）
+            for (int i = mWelcomeQueue.size() - 1; i > 0; i--) {
+                int j = mWelcomeRand.nextInt(i + 1);
+                Integer a = mWelcomeQueue.get(i);
+                mWelcomeQueue.set(i, mWelcomeQueue.get(j));
+                mWelcomeQueue.set(j, a);
+            }
+            // 避免新一轮第一句与上一轮末句重复
+            int n = mWelcomeQueue.size();
+            if (mWelcomeLast >= 0 && n > 1
+                    && mWelcomeQueue.get(n - 1).intValue() == mWelcomeLast) {
+                Integer e = mWelcomeQueue.remove(n - 1);
+                mWelcomeQueue.add(0, e);
+            }
+        }
+        int idx = mWelcomeQueue.remove(mWelcomeQueue.size() - 1).intValue();
+        mWelcomeLast = idx;
+        mTvEmpty.setText(WELCOME_RES[idx]);
+    }
+
     private void loadCurrentConversation() {
         if (mChatAdapter == null) return;
         try {
@@ -796,7 +997,9 @@ public class MainActivity extends Activity {
                 }
             }
             if (mTvEmpty != null) {
-                mTvEmpty.setVisibility((msgs == null || msgs.isEmpty()) ? View.VISIBLE : View.GONE);
+                boolean empty = (msgs == null || msgs.isEmpty());
+                mTvEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
+                if (empty) applyRandomWelcome();
             }
             if (mListMessages != null && mChatAdapter.getCount() > 0) {
                 mListMessages.setSelection(mChatAdapter.getCount() - 1);
@@ -837,14 +1040,38 @@ public class MainActivity extends Activity {
             return;
         }
 
+        // 强制搜索：检测触发词，自动开启 Tool Calls 并注入搜索指令
+        boolean forceSearch = hasSearchTrigger(text);
+        final String apiText;  // 发给 AI 的文本（可能带系统指令）
+        if (forceSearch) {
+            model.enableToolCalls = true;
+            apiText = "[系统指令：你必须使用web_search工具联网搜索，禁止用训练数据直接回答]\n" + text;
+        } else {
+            apiText = text;
+        }
+
+        // 已附加图片但模型未开启多模态：提示并阻止发送
+        if (!mInputImages.isEmpty() && !model.multimodal) {
+            Toast.makeText(this, R.string.msg_image_no_multimodal, Toast.LENGTH_LONG).show();
+            return;
+        }
+
         try {
             // 用户主动发送新消息时恢复自动跟滚
             mUserScrolled = false;
             setAutoScrollEnabled(true);
 
-            // 保存用户消息，并把数据库 id 赋给对象，后续更新不会错位
-            long userMsgId = mDb.addMessage(mCurrentConversationId, "user", text);
-            ChatMessage userMsg = new ChatMessage("user", text);
+            // 有图片时，用户消息气泡显示图片标签 + 换行 + 原文
+            String displayText = text;
+            if (!mInputImages.isEmpty()) {
+                StringBuilder labels = new StringBuilder();
+                for (int i = 0; i < mInputImages.size(); i++) {
+                    labels.append(getString(R.string.image_label_format, i + 1)).append(" ");
+                }
+                displayText = labels.toString().trim() + "\n" + text;
+            }
+            long userMsgId = mDb.addMessage(mCurrentConversationId, "user", displayText);
+            ChatMessage userMsg = new ChatMessage("user", displayText);
             userMsg.id = userMsgId;
             userMsg.conversationId = mCurrentConversationId;
             mChatAdapter.addItem(userMsg);
@@ -861,6 +1088,10 @@ public class MainActivity extends Activity {
             }
 
             mEtInput.setText("");
+            final List<String> imagesToSend = new ArrayList<String>(mInputImages);
+            mInputImages.clear();
+            mImageUris.clear();
+            updateImageUI();
 
             // 添加 AI 占位，先显示 "..."，同样保存数据库 id
             final long convId = mCurrentConversationId;
@@ -878,10 +1109,26 @@ public class MainActivity extends Activity {
             updateSendButton();
 
             // 构造历史（不含最新两条：刚加的 user + ai 占位）
+            // 用户消息如有图片标签，发送 API 时剥离（保留纯文本）
             List<ChatMessage> history = new ArrayList<ChatMessage>();
             List<ChatMessage> all = mChatAdapter.getItems();
             for (int i = 0; i < all.size() - 2; i++) {
-                history.add(all.get(i));
+                ChatMessage orig = all.get(i);
+                if (orig.isUser() && orig.content != null) {
+                    int newlineIdx = orig.content.indexOf("\n");
+                    if (newlineIdx > 0 && isImageLabelLine(orig.content.substring(0, newlineIdx))) {
+                        String cleanText = orig.content.substring(newlineIdx + 1);
+                        ChatMessage clean = new ChatMessage("user", cleanText);
+                        clean.id = orig.id;
+                        clean.conversationId = orig.conversationId;
+                        clean.createdAt = orig.createdAt;
+                        history.add(clean);
+                    } else {
+                        history.add(orig);
+                    }
+                } else {
+                    history.add(orig);
+                }
             }
 
             final boolean stream = mSettings.isStreamOutput();
@@ -893,6 +1140,7 @@ public class MainActivity extends Activity {
 
             // 流式输出：内存缓冲区 + 30ms 定时追帧打字机效果
             final Handler streamHandler = new Handler();
+            pr.streamHandler = streamHandler;
             final boolean[] dbPending = {false};
             final int FRAME_MS = 30;
             final int CHARS_PER_FRAME = 6;
@@ -967,7 +1215,7 @@ public class MainActivity extends Activity {
                 }
             };
 
-            req.execute(model, history, text, stream, new AIRequest.AICallback() {
+            req.execute(model, history, apiText, imagesToSend, stream, new AIRequest.AICallback() {
                 @Override
                 public void onStart() {
                     // 进入流式状态
@@ -1034,8 +1282,9 @@ public class MainActivity extends Activity {
                     try {
                         mDb.updateMessage(pr.aiMessageId, resp, reasoning);
                         if (mCurrentConversationId == convId) {
-                            // 完成时一次性显示全部剩余内容
-                            mChatAdapter.updateLastItem(resp, reasoning, mListMessages);
+                            // 非流式：思考内容由 animateReasoningStream 逐字展开，不在此处显示
+                            String uiReasoning = (!stream && showReasoning) ? "" : reasoning;
+                            mChatAdapter.updateLastItem(resp, uiReasoning, mListMessages);
                             mChatAdapter.notifyDataSetChanged();
                             // TranscriptMode 会自动滚到真实底部
                         }
@@ -1121,17 +1370,154 @@ public class MainActivity extends Activity {
             }
             updateModelDisplay();
             refreshConversationList();
+        } else if (requestCode == REQUEST_CODE_PICK_IMAGE && resultCode == RESULT_OK && data != null) {
+            try {
+                Uri uri = data.getData();
+                if (uri != null) processSelectedImage(uri);
+            } catch (Throwable t) {
+                // ignore
+            }
         }
+    }
+
+    private void processSelectedImage(Uri uri) {
+        try {
+            if (mInputImages.size() >= MAX_IMAGES) {
+                Toast.makeText(this, getString(R.string.msg_max_images, MAX_IMAGES), Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Bitmap bitmap = decodeSampledBitmap(uri, 1080, 1080);
+            if (bitmap != null) {
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 80, baos);
+                byte[] bytes = baos.toByteArray();
+                bitmap.recycle();
+                String dataUrl = "data:image/jpeg;base64," + Base64.toBase64String(bytes);
+                mInputImages.add(dataUrl);
+                mImageUris.add(uri);
+                updateImageUI();
+                // 选图后即提示：当前模型若未开启多模态，发送时图片不会生效
+                ModelConfig model = mSettings.getActiveModel();
+                if (model != null && !model.multimodal) {
+                    Toast.makeText(this, R.string.msg_image_no_multimodal, Toast.LENGTH_LONG).show();
+                }
+            } else {
+                Toast.makeText(this, R.string.msg_image_decode_failed, Toast.LENGTH_SHORT).show();
+            }
+        } catch (Throwable t) {
+            Toast.makeText(this, getString(R.string.msg_image_load_failed, safeMsg(t)), Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void updateImageUI() {
+        int count = mInputImages.size();
+        // 图片标签
+        if (mLayoutImageLabels != null) {
+            mLayoutImageLabels.setVisibility(count > 0 ? View.VISIBLE : View.GONE);
+        }
+        TextView[] labels = { mTvImageLabel1, mTvImageLabel2, mTvImageLabel3 };
+        for (int i = 0; i < labels.length; i++) {
+            if (labels[i] != null) {
+                if (i < count) {
+                    labels[i].setText(getString(R.string.image_label_format, i + 1));
+                    labels[i].setVisibility(View.VISIBLE);
+                } else {
+                    labels[i].setVisibility(View.GONE);
+                }
+            }
+        }
+        updateSendButton();
+    }
+
+    private void removeImage(int idx) {
+        if (idx < 0 || idx >= mInputImages.size()) return;
+        mInputImages.remove(idx);
+        mImageUris.remove(idx);
+        mImageLabelHandler.removeCallbacksAndMessages(null);
+        mPendingLabelIndex = -1;
+        updateImageUI();
+        Toast.makeText(this, getString(R.string.msg_image_removed, idx + 1), Toast.LENGTH_SHORT).show();
+    }
+
+    /**
+     * 判断一行文本是否只包含图片标签（如「（图片1） （图片2）」或「(img1) (img2)」）。
+     * 只有全部 token 匹配图片标签格式才返回 true，避免误伤用户手打的「（图片」开头的消息。
+     */
+    private static boolean isImageLabelLine(String line) {
+        if (line == null || line.length() == 0) return false;
+        String[] tokens = line.trim().split(" ");
+        if (tokens.length == 0) return false;
+        for (String token : tokens) {
+            char first = token.charAt(0);
+            char last = token.charAt(token.length() - 1);
+            if ((first != '(' && first != '（') || (last != ')' && last != '）')) return false;
+            String inner = token.substring(1, token.length() - 1);
+            // 必须匹配 "图片N" 或 "imgN"
+            if (inner.startsWith("图片")) {
+                for (int i = 2; i < inner.length(); i++) {
+                    if (!Character.isDigit(inner.charAt(i))) return false;
+                }
+            } else if (inner.startsWith("img")) {
+                for (int i = 3; i < inner.length(); i++) {
+                    if (!Character.isDigit(inner.charAt(i))) return false;
+                }
+            } else {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private Bitmap decodeSampledBitmap(Uri uri, int reqW, int reqH) throws IOException {
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        InputStream is1 = getContentResolver().openInputStream(uri);
+        try {
+            BitmapFactory.decodeStream(is1, null, options);
+        } finally {
+            try { is1.close(); } catch (IOException e) {}
+        }
+        options.inSampleSize = calculateInSampleSize(options, reqW, reqH);
+        options.inJustDecodeBounds = false;
+        InputStream is2 = getContentResolver().openInputStream(uri);
+        try {
+            return BitmapFactory.decodeStream(is2, null, options);
+        } finally {
+            try { is2.close(); } catch (IOException e) {}
+        }
+    }
+
+    private static int calculateInSampleSize(BitmapFactory.Options options, int reqW, int reqH) {
+        final int height = options.outHeight;
+        final int width = options.outWidth;
+        int inSampleSize = 1;
+        if (height > reqH || width > reqW) {
+            if (width > height) {
+                while ((width / inSampleSize) > reqW) inSampleSize *= 2;
+            } else {
+                while ((height / inSampleSize) > reqH) inSampleSize *= 2;
+            }
+        }
+        return inSampleSize;
     }
 
     @Override
     protected void onDestroy() {
         for (PendingRequest pr : mPendingRequests.values()) {
-            if (pr != null && pr.request != null) {
-                try {
-                    pr.request.cancel();
-                } catch (Throwable t) {
-                    // ignore
+            if (pr != null) {
+                if (pr.streamHandler != null) {
+                    try {
+                        pr.streamHandler.removeCallbacksAndMessages(null);
+                    } catch (Throwable t) {
+                        // ignore
+                    }
+                }
+                if (pr.request != null) {
+                    try {
+                        pr.request.cancel();
+                    } catch (Throwable t) {
+                        // ignore
+                    }
                 }
             }
         }
@@ -1184,26 +1570,15 @@ public class MainActivity extends Activity {
     }
 
     /**
-     * 兼容 Android 2.3 的剪贴板复制：API 11+ 用 content.ClipboardManager，低版本用 text.ClipboardManager。
+     * 检测消息是否包含强制搜索触发词。
      */
-    @SuppressWarnings("deprecation")
-    private void copyToClipboard(String text) {
-        if (Build.VERSION.SDK_INT >= 11) {
-            try {
-                android.content.ClipboardManager cm =
-                        (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                cm.setPrimaryClip(ClipData.newPlainText("text", text));
-                return;
-            } catch (Throwable t) {
-                // fallthrough
-            }
-        }
-        try {
-            android.text.ClipboardManager cm =
-                    (android.text.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-            cm.setText(text);
-        } catch (Throwable t) {
-            // ignore
-        }
+    private static boolean hasSearchTrigger(String text) {
+        if (text == null) return false;
+        String t = text.toLowerCase();
+        return t.contains("帮我搜索") || t.contains("请联网搜索")
+            || t.contains("帮我查") || t.contains("搜索一下")
+            || t.contains("查一下") || t.contains("联网搜")
+            || t.contains("search for me") || t.contains("please search");
     }
+
 }

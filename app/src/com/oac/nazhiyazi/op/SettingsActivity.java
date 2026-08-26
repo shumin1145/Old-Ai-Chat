@@ -45,6 +45,8 @@ public class SettingsActivity extends Activity {
     private Button mBtnAddModelInline;
     private View mRowLanguage;
     private TextView mTvLanguageValue;
+    private View mRowNetMode;
+    private TextView mTvNetModeValue;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -67,6 +69,8 @@ public class SettingsActivity extends Activity {
             mBtnAddModelInline = (Button) findViewById(R.id.btn_add_model_inline);
             mRowLanguage = findViewById(R.id.row_language);
             mTvLanguageValue = (TextView) findViewById(R.id.tv_language_value);
+            mRowNetMode = findViewById(R.id.row_net_mode);
+            mTvNetModeValue = (TextView) findViewById(R.id.tv_net_mode_value);
 
             if (mBtnAddModelInline != null) {
                 mBtnAddModelInline.setOnClickListener(new View.OnClickListener() {
@@ -130,6 +134,16 @@ public class SettingsActivity extends Activity {
                     @Override
                     public void onClick(View v) {
                         showLanguagePicker();
+                    }
+                });
+            }
+
+            updateNetModeDisplay();
+            if (mRowNetMode != null) {
+                mRowNetMode.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        showNetModePicker();
                     }
                 });
             }
@@ -345,23 +359,12 @@ public class SettingsActivity extends Activity {
                         @Override
                         public void onClick(DialogInterface dialog, int which) {
                             try {
-                                final String lang = langs[which];
+                                String lang = langs[which];
+                                mSettings.setLanguage(lang);
+                                applyLanguage(lang);
+                                updateLanguageDisplay();
+                                setResult(RESULT_OK);
                                 dialog.dismiss();
-                                new AlertDialog.Builder(SettingsActivity.this)
-                                        .setTitle(R.string.lang_restart_title)
-                                        .setMessage(R.string.lang_restart_message)
-                                        .setPositiveButton(R.string.lang_restart, new DialogInterface.OnClickListener() {
-                                            @Override
-                                            public void onClick(DialogInterface dialog, int which) {
-                                                mSettings.setLanguage(lang);
-                                                applyLanguage(lang);
-                                                updateLanguageDisplay();
-                                                setResult(RESULT_OK);
-                                                finish();
-                                            }
-                                        })
-                                        .setNegativeButton(R.string.dlg_cancel, null)
-                                        .show();
                             } catch (Throwable t) {
                                 toast(safeMsg(t));
                             }
@@ -384,6 +387,57 @@ public class SettingsActivity extends Activity {
             Configuration config = getResources().getConfiguration();
             config.locale = locale;
             getResources().updateConfiguration(config, getResources().getDisplayMetrics());
+        } catch (Throwable t) {
+            // ignore
+        }
+    }
+
+    /**
+     * 网络层兼容性切换：okhttp（Android 2.3+）或老网络层（Android 2.1）。
+     * 持久化到 SettingsManager，并重置 NetWorkerFactory 缓存，使下次请求立即生效。
+     */
+    private void showNetModePicker() {
+        if (mSettings == null) return;
+        try {
+            final String[] modes = {SettingsManager.NET_MODE_OKHTTP, SettingsManager.NET_MODE_LEGACY};
+            final String[] names = {
+                    getString(R.string.net_mode_okhttp),
+                    getString(R.string.net_mode_legacy)
+            };
+            String current = mSettings.getNetMode();
+            int checked = SettingsManager.NET_MODE_LEGACY.equals(current) ? 1 : 0;
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.net_mode_title)
+                    .setSingleChoiceItems(names, checked, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            try {
+                                String mode = modes[which];
+                                mSettings.setNetMode(mode);
+                                mSettings.setNetModeChosen(true);
+                                NetWorkerFactory.reset();
+                                updateNetModeDisplay();
+                                toast(getString(R.string.net_mode_switched, names[which]));
+                                dialog.dismiss();
+                            } catch (Throwable t) {
+                                toast(safeMsg(t));
+                            }
+                        }
+                    })
+                    .setNegativeButton(R.string.dlg_cancel, null)
+                    .show();
+        } catch (Throwable t) {
+            toast(safeMsg(t));
+        }
+    }
+
+    private void updateNetModeDisplay() {
+        if (mTvNetModeValue == null || mSettings == null) return;
+        try {
+            String mode = mSettings.getNetMode();
+            String label = SettingsManager.NET_MODE_LEGACY.equals(mode)
+                    ? getString(R.string.net_mode_legacy) : getString(R.string.net_mode_okhttp);
+            mTvNetModeValue.setText(label);
         } catch (Throwable t) {
             // ignore
         }
@@ -457,9 +511,15 @@ public class SettingsActivity extends Activity {
         final RadioButton rbThinkDefault = (RadioButton) body.findViewById(R.id.rb_think_default);
         final RadioButton rbThinkOn = (RadioButton) body.findViewById(R.id.rb_think_on);
         final RadioButton rbThinkOff = (RadioButton) body.findViewById(R.id.rb_think_off);
+        final CheckBox cbMultimodal = (CheckBox) body.findViewById(R.id.cb_multimodal);
+        final CheckBox cbToolCalls = (CheckBox) body.findViewById(R.id.cb_tool_calls);
         final Button btnTest = (Button) body.findViewById(R.id.btn_test_connection);
         final TextView tvTestResult = (TextView) body.findViewById(R.id.tv_test_result);
+        final Button btnOptimize = (Button) body.findViewById(R.id.btn_model_optimize);
         final AIRequest[] testReqHolder = new AIRequest[1];
+        final int[] optimizeModeHolder = new int[]{
+                existing != null ? existing.optimizationMode : ModelConfig.OPT_DEFAULT
+        };
 
         try {
             if (existing != null) {
@@ -480,10 +540,16 @@ public class SettingsActivity extends Activity {
                         rgThinking.check(R.id.rb_think_default);
                     }
                 }
+                if (cbMultimodal != null) cbMultimodal.setChecked(existing.multimodal);
+                if (cbToolCalls != null) cbToolCalls.setChecked(existing.enableToolCalls);
+                updateOptimizeButtonText(btnOptimize, existing.optimizationMode);
             } else {
+                updateOptimizeButtonText(btnOptimize, ModelConfig.OPT_DEFAULT);
                 if (etTemp != null) etTemp.setText("0.7");
                 if (etMax != null) etMax.setText("2048");
                 if (rgThinking != null) rgThinking.check(R.id.rb_think_default);
+                if (cbMultimodal != null) cbMultimodal.setChecked(false);
+                if (cbToolCalls != null) cbToolCalls.setChecked(false);
             }
         } catch (Throwable t) {
             // ignore setText 错误
@@ -494,8 +560,6 @@ public class SettingsActivity extends Activity {
             dlg = new AlertDialog.Builder(this)
                     .setTitle(existing == null ? R.string.set_add_model : R.string.set_edit_model)
                     .setView(body)
-                    .setPositiveButton(R.string.dlg_ok, null)  // 后面覆盖，避免点完自动 dismiss
-                    .setNegativeButton(R.string.dlg_cancel, null)
                     .create();
             dlg.show();
 
@@ -515,12 +579,27 @@ public class SettingsActivity extends Activity {
             return;
         }
 
-        // 覆盖 OK 按钮，做校验（getButton 可能返回 null）
-        Button btnOk = null;
-        try {
-            btnOk = dlg.getButton(AlertDialog.BUTTON_POSITIVE);
-        } catch (Throwable t) {
-            // ignore
+        // 直接绑定对话框内自定义按钮，避免依赖 AlertDialog.getButton（Android 2.1 上可能返回 null，导致保存监听器从未挂载，模型无法保存）
+        Button btnOk = (Button) body.findViewById(R.id.btn_model_save);
+        if (btnOk == null) {
+            try { btnOk = dlg.getButton(AlertDialog.BUTTON_POSITIVE); } catch (Throwable t) {}
+        }
+        Button btnCancel = (Button) body.findViewById(R.id.btn_model_cancel);
+        if (btnCancel != null) {
+            btnCancel.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    try { dlg.dismiss(); } catch (Throwable t) {}
+                }
+            });
+        } else {
+            try {
+                Button bc = dlg.getButton(AlertDialog.BUTTON_NEGATIVE);
+                if (bc != null) bc.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) { try { dlg.dismiss(); } catch (Throwable t) {} }
+                });
+            } catch (Throwable t) {}
         }
         if (btnOk != null) {
             btnOk.setOnClickListener(new View.OnClickListener() {
@@ -595,6 +674,9 @@ public class SettingsActivity extends Activity {
                             // ignore
                         }
                         m.thinkingMode = thinkingMode;
+                        m.multimodal = cbMultimodal != null ? cbMultimodal.isChecked() : false;
+                        m.enableToolCalls = cbToolCalls != null ? cbToolCalls.isChecked() : false;
+                        m.optimizationMode = optimizeModeHolder[0];
 
                         mSettings.addOrUpdateModel(m);
 
@@ -618,10 +700,72 @@ public class SettingsActivity extends Activity {
                 @Override
                 public void onClick(View v) {
                     runTestConnection(etUrl, etModelId, etKey, etName, etSys, etTemp, etMax,
-                            btnTest, tvTestResult, testReqHolder);
+                            optimizeModeHolder[0], btnTest, tvTestResult, testReqHolder);
                 }
             });
         }
+
+        // 模型优化按钮
+        if (btnOptimize != null) {
+            btnOptimize.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    showOptimizePicker(optimizeModeHolder, btnOptimize);
+                }
+            });
+        }
+
+        /* 【模板AI 已禁用】开源前注释，原功能：动态创建「模板AI」按钮自动填入配置。如需恢复请取消本段块注释。
+         * 原代码：
+        try {
+            if (btnTest != null) {
+                final Button btnTemplate = new Button(this);
+                btnTemplate.setText("模板AI");
+                try {
+                    btnTemplate.setBackgroundResource(android.R.drawable.btn_default);
+                } catch (Throwable t) {
+                    // ignore
+                }
+                try {
+                    btnTemplate.setTextColor(0xFF222222); // 同 @color/text_primary
+                    btnTemplate.setTextSize(14);
+                } catch (Throwable t) {
+                    // ignore
+                }
+                LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(
+                        LinearLayout.LayoutParams.MATCH_PARENT,
+                        LinearLayout.LayoutParams.WRAP_CONTENT);
+                try {
+                    float density = getResources().getDisplayMetrics().density;
+                    tlp.topMargin = (int) (12 * density + 0.5f);
+                } catch (Throwable t) {
+                    tlp.topMargin = 12;
+                }
+                btnTemplate.setLayoutParams(tlp);
+
+                Object tparent = btnTest.getParent();
+                if (tparent instanceof LinearLayout) {
+                    final LinearLayout tll = (LinearLayout) tparent;
+                    int tidx = tll.indexOfChild(btnTest);
+                    if (tidx >= 0) {
+                        tll.addView(btnTemplate, tidx + 1);
+                        btnTemplate.setOnClickListener(new View.OnClickListener() {
+                            @Override
+                            public void onClick(View v) {
+                                try {
+                                    showTemplatePicker(etName, etUrl, etModelId, etKey, btnOptimize, optimizeModeHolder);
+                                } catch (Throwable t) {
+                                    toast(safeMsg(t));
+                                }
+                            }
+                        });
+                    }
+                }
+            }
+        } catch (Throwable t) {
+            // 模板AI 按钮创建失败不影响主功能
+        }
+         */
 
         // 对话框关闭时取消测试请求
         dlg.setOnDismissListener(new DialogInterface.OnDismissListener() {
@@ -635,11 +779,132 @@ public class SettingsActivity extends Activity {
         });
     }
 
+    private void showOptimizePicker(final int[] optimizeModeHolder, final Button btnOptimize) {
+        try {
+            final String[] modes = {
+                    getString(R.string.set_model_optimize_default),
+                    getString(R.string.set_model_optimize_deepseek),
+                    getString(R.string.set_model_optimize_google)
+            };
+            int checked = optimizeModeHolder[0];
+            if (checked < ModelConfig.OPT_DEFAULT || checked > ModelConfig.OPT_GOOGLE) {
+                checked = ModelConfig.OPT_DEFAULT;
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle(R.string.set_select_optimize)
+                    .setSingleChoiceItems(modes, checked, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            try {
+                                optimizeModeHolder[0] = which;
+                                updateOptimizeButtonText(btnOptimize, which);
+                                dialog.dismiss();
+                            } catch (Throwable t) {
+                                toast(safeMsg(t));
+                            }
+                        }
+                    })
+                    .setNegativeButton(R.string.dlg_cancel, null)
+                    .show();
+        } catch (Throwable t) {
+            toast(safeMsg(t));
+        }
+    }
+
+    private void updateOptimizeButtonText(Button btnOptimize, int mode) {
+        if (btnOptimize == null) return;
+        try {
+            int resId;
+            switch (mode) {
+                case ModelConfig.OPT_DEEPSEEK:
+                    resId = R.string.set_model_optimize_deepseek;
+                    break;
+                case ModelConfig.OPT_GOOGLE:
+                    resId = R.string.set_model_optimize_google;
+                    break;
+                case ModelConfig.OPT_DEFAULT:
+                default:
+                    resId = R.string.set_model_optimize_default;
+                    break;
+            }
+            btnOptimize.setText(resId);
+        } catch (Throwable t) {
+            // ignore
+        }
+    }
+
+    /**
+     * 模板AI：弹出 DeepSeek / Google 选项，选中后自动填入对应配置。
+     * 【模板AI 已禁用】开源前注释掉，功能不再调用。
+     */
+    private void showTemplatePicker(final EditText etName, final EditText etUrl,
+                                    final EditText etModelId, final EditText etKey,
+                                    final Button btnOptimize, final int[] optimizeModeHolder) {
+        /* 【模板AI 已禁用】以下为原实现，已注释不再调用：
+        try {
+            final String[] labels = {"DeepSeek", "Google"};
+            new AlertDialog.Builder(this)
+                    .setTitle("模板AI（自动填入配置）")
+                    .setItems(labels, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialog, int which) {
+                            try {
+                                applyTemplate(labels[which], etName, etUrl, etModelId, etKey, btnOptimize, optimizeModeHolder);
+                                dialog.dismiss();
+                            } catch (Throwable t) {
+                                toast(safeMsg(t));
+                            }
+                        }
+                    })
+                    .setNegativeButton(R.string.dlg_cancel, null)
+                    .show();
+        } catch (Throwable t) {
+            toast(safeMsg(t));
+        }
+        */
+    }
+
+    /**
+     * 将内置模板配置填入表单。DeepSeek→sensenova 代理端点；Google→NVIDIA 集成端点。
+     * 【模板AI 已禁用】开源前注释掉，默认 AI 信息已替换为占位文字（见下方注释），避免泄露内置密钥。
+     */
+    private void applyTemplate(String label, final EditText etName, final EditText etUrl,
+                               final EditText etModelId, final EditText etKey,
+                               final Button btnOptimize, final int[] optimizeModeHolder) {
+        /* 【模板AI 已禁用】以下为原实现，默认信息已用占位文字替换，功能不再调用：
+        String name, url, key, model;
+        int optMode;
+        if ("DeepSeek".equals(label)) {
+            name = "这是模型名字";
+            url = "这是api地址";
+            key = "这是key";
+            model = "这是模型名字";
+            optMode = ModelConfig.OPT_DEEPSEEK;
+        } else { // Google
+            name = "这是模型名字";
+            url = "这是api地址";
+            key = "这是key";
+            model = "这是模型名字";
+            optMode = ModelConfig.OPT_GOOGLE;
+        }
+        try { if (etName != null) etName.setText(name); } catch (Throwable t) {}
+        try { if (etUrl != null) etUrl.setText(url); } catch (Throwable t) {}
+        try { if (etModelId != null) etModelId.setText(model); } catch (Throwable t) {}
+        try { if (etKey != null) etKey.setText(key); } catch (Throwable t) {}
+        try {
+            optimizeModeHolder[0] = optMode;
+            updateOptimizeButtonText(btnOptimize, optMode);
+        } catch (Throwable t) {}
+        toast("已填入 " + label + " 模板，点\"确定\"保存即可");
+        */
+    }
+
     /**
      * 执行测试连接：用当前填入的配置发起一次简单请求，显示详细结果。
      */
     private void runTestConnection(EditText etUrl, EditText etModelId, EditText etKey,
                                    EditText etName, EditText etSys, EditText etTemp, EditText etMax,
+                                   int optimizeMode,
                                    final Button btnTest, final TextView tvTestResult,
                                    final AIRequest[] testReqHolder) {
         try {
@@ -675,6 +940,7 @@ public class SettingsActivity extends Activity {
             testModel.temperature = temp;
             testModel.maxTokens = maxTok > 0 ? Math.min(maxTok, 100) : 100;  // 测试时限制 tokens
             testModel.systemPrompt = sys;
+            testModel.optimizationMode = optimizeMode;
 
             // 取消之前的测试请求
             if (testReqHolder[0] != null) {
@@ -696,7 +962,7 @@ public class SettingsActivity extends Activity {
             final AIRequest req = new AIRequest();
             testReqHolder[0] = req;
             final long startTime = System.currentTimeMillis();
-            req.execute(testModel, new ArrayList<ChatMessage>(), "你好", false, new AIRequest.AICallback() {
+            req.execute(testModel, new ArrayList<ChatMessage>(), "你好", null, false, new AIRequest.AICallback() {
                 @Override
                 public void onStart() {}
 

@@ -1,0 +1,5 @@
+# local.properties.template
+# 复制本文件为 local.properties，并把 sdk.dir 指向你的 Android SDK 路径。
+# 构建脚本会优先读取这里的 sdk.dir；若缺失则回退到 C:\AndroidSDK(Windows) / $ANDROID_HOME。
+# 注意 Windows 路径用双反斜杠或单正斜杠。
+sdk.dir=C:\\AndroidSDK

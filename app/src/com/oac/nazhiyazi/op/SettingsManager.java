@@ -29,6 +29,13 @@ public class SettingsManager {
     private static final String KEY_FIRST_LAUNCH = "first_launch";
     private static final String KEY_PRIVACY_ACCEPTED = "privacy_accepted";
 
+    // ============ 网络层运行模式 ============
+    /** 网络层运行模式：okhttp（Android 2.3+）或 legacy（Android 2.1 老网络层） */
+    public static final String NET_MODE_OKHTTP = "okhttp";
+    public static final String NET_MODE_LEGACY = "legacy";
+    private static final String KEY_NET_MODE = "net_mode";
+    private static final String KEY_NET_MODE_CHOSEN = "net_mode_chosen";
+
     private static SettingsManager sInstance;
 
     private final SharedPreferences mPrefs;
@@ -70,6 +77,12 @@ public class SettingsManager {
                 if (m.thinkingMode < ModelConfig.THINK_DEFAULT || m.thinkingMode > ModelConfig.THINK_OFF) {
                     m.thinkingMode = ModelConfig.THINK_DEFAULT;
                 }
+                m.multimodal = o.optBoolean("multimodal", false);
+                m.enableToolCalls = o.optBoolean("tool_calls", false);
+                m.optimizationMode = o.optInt("optimization_mode", ModelConfig.OPT_DEFAULT);
+                if (m.optimizationMode < ModelConfig.OPT_DEFAULT || m.optimizationMode > ModelConfig.OPT_GOOGLE) {
+                    m.optimizationMode = ModelConfig.OPT_DEFAULT;
+                }
                 list.add(m);
             }
         } catch (Exception e) {
@@ -107,6 +120,9 @@ public class SettingsManager {
                 o.put("max_tokens", m.maxTokens);
                 o.put("system_prompt", m.systemPrompt == null ? "" : m.systemPrompt);
                 o.put("thinking_mode", m.thinkingMode);
+                o.put("multimodal", m.multimodal);
+                o.put("tool_calls", m.enableToolCalls);
+                o.put("optimization_mode", m.optimizationMode);
                 arr.put(o);
             } catch (Exception e) {
                 // ignore 单条失败
@@ -237,5 +253,26 @@ public class SettingsManager {
 
     public void setPrivacyAccepted(boolean accepted) {
         mPrefs.edit().putBoolean(KEY_PRIVACY_ACCEPTED, accepted).commit();
+    }
+
+    // ============ 网络层模式 ============
+
+    /** 当前网络层模式，默认 okhttp（Android 2.3+） */
+    public String getNetMode() {
+        return mPrefs.getString(KEY_NET_MODE, NET_MODE_OKHTTP);
+    }
+
+    public void setNetMode(String mode) {
+        if (mode == null) mode = NET_MODE_OKHTTP;
+        mPrefs.edit().putString(KEY_NET_MODE, mode).commit();
+    }
+
+    /** 用户是否已经在引导页选择过网络层模式 */
+    public boolean isNetModeChosen() {
+        return mPrefs.getBoolean(KEY_NET_MODE_CHOSEN, false);
+    }
+
+    public void setNetModeChosen(boolean chosen) {
+        mPrefs.edit().putBoolean(KEY_NET_MODE_CHOSEN, chosen).commit();
     }
 }

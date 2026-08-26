@@ -1,9 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Old Ai Chat</string>
+    <string name="app_name">Old AI Chat Open</string>
     <string name="settings_title">Settings</string>
-
-    <!-- Main screen -->
     <string name="hint_input">Type a message…</string>
     <string name="btn_send">Send</string>
     <string name="btn_new_chat">New chat</string>
@@ -11,16 +9,12 @@
     <string name="btn_back">Back</string>
     <string name="empty_chat">Start a new conversation</string>
     <string name="empty_conversations">No conversations</string>
-
-    <!-- Sidebar -->
     <string name="drawer_title">Conversations</string>
     <string name="action_settings">Settings</string>
     <string name="action_new">New chat</string>
     <string name="action_clear">Clear all</string>
     <string name="action_delete">Delete</string>
     <string name="action_rename">Rename</string>
-
-    <!-- Settings -->
     <string name="set_models">Model Config</string>
     <string name="set_models_summary">Add / edit available AI models</string>
     <string name="set_active_model">Current model</string>
@@ -50,15 +44,36 @@
     <string name="lang_chinese">中文</string>
     <string name="lang_english">English</string>
     <string name="lang_select_title">Select language</string>
-    <string name="lang_restart_title">Restart Required</string>
-    <string name="lang_restart_message">Changing the language requires restarting the app. Restart now?</string>
-    <string name="lang_restart">Restart</string>
     <string name="privacy_title">Old Ai Chat Privacy Agreement</string>
-    <string name="privacy_message">1. This software is a free, non-commercial AI chat client designed for old Android systems only.\n\n2. All chat records and configuration information are stored locally on your device and will be deleted upon uninstallation. The software does not actively upload any personal data.\n\n3. Conversation content is sent only to the third-party AI API endpoints that you configure yourself. The software does not operate servers or relay data.\n\n4. The software requests only network permission and does not access contacts, files, location, or other private content.\n\n5. Data policies of third-party AI services are governed by their respective providers. By using this software, you acknowledge and agree to the above terms.</string>
+    <string name="privacy_message">"1. This software is a free, non-commercial AI chat client designed for old Android systems only.
+
+2. All chat records and configuration information are stored locally on your device and will be deleted upon uninstallation. The software does not actively upload any personal data.
+
+3. Conversation content is sent only to the third-party AI API endpoints that you configure yourself. The software does not operate servers or relay data.
+
+4. The software requests only network permission and does not access contacts, files, location, or other private content.
+
+5. Data policies of third-party AI services are governed by their respective providers. By using this software, you acknowledge and agree to the above terms."</string>
     <string name="privacy_agree">OK</string>
     <string name="privacy_reject">KO</string>
     <string name="set_about">About</string>
-    <string name="set_about_text">App name: Old Ai Chat (Open Source Release)\n\nCurrent version: 1.0 (based on 1.5beta)\n\nFeedback or suggestions: QQ group 231804847\n\nCompatibility: Android 2.3+\n\nProtocol: OpenAI-compatible API. Please refer to the model configuration guide for API setup.\n\nNote: The open-source release no longer provides a public API. Please use your own.\n\nFirst project build: 2026.7.21 yes, 0721!\nCiallo～(∠・ω&lt; )⌒★\n\nUpdated: 2026.7.25</string>
+    <string name="model_picker_title">Select Model</string>
+    <string name="set_about_text">"App name: Old AI Chat Open Source Release
+
+Current version: 1.6open/2.1beta
+
+Feedback or suggestions: QQ group 231804847
+
+Compatibility: Android 2.1+
+
+Protocol: OpenAI-compatible API. Please refer to the model configuration guide for API setup.
+
+Note: Web search is not fully reliable and is for entertainment only.
+
+First project build: 2026.7.21 yes, 0721!
+Ciallo～(∠・ω&lt; )⌒★
+
+Updated: 2026.8.15"</string>
     <string name="set_test">Test connection</string>
     <string name="set_testing">Testing…</string>
     <string name="set_test_ok">[OK] Test succeeded</string>
@@ -67,8 +82,24 @@
     <string name="set_think_default">Default</string>
     <string name="set_think_on">Think on</string>
     <string name="set_think_off">No thinking</string>
-
-    <!-- Conversation -->
+    <string name="set_model_optimize">Model optimize</string>
+    <string name="set_model_optimize_default">Default</string>
+    <string name="set_model_optimize_deepseek">DeepSeek</string>
+    <string name="set_model_optimize_google">Google AI</string>
+    <string name="set_select_optimize">Select model optimize</string>
+    <string name="set_multimodal">Multimodal / Vision</string>
+    <string name="set_multimodal_summary">Allow attaching images in messages (model must support vision)</string>
+    <string name="set_tool_calls">Web Search</string>
+    <string name="set_tool_calls_summary">Allow model to search the web. Say \"search for me\" or \"please search\" to force search even when off</string>
+    <string name="btn_image">Image</string>
+    <string name="msg_image_no_multimodal">Current model has multimodal disabled; images will be ignored. Enable Multimodal in settings or switch to a vision model (e.g. GPT with vision / DeepSeek-VL / Qwen-VL).</string>
+    <string name="image_label_format">(img%1$d)</string>
+    <string name="msg_max_images">Maximum %1$d images</string>
+    <string name="msg_image_decode_failed">Image decode failed</string>
+    <string name="msg_image_load_failed">Image load failed: %1$s</string>
+    <string name="msg_image_open_failed">Cannot open image</string>
+    <string name="msg_image_removed">Removed image %1$d</string>
+    <string name="msg_double_tap_delete">Double-tap to remove image</string>
     <string name="role_user">Me</string>
     <string name="role_assistant">AI</string>
     <string name="role_system">System</string>
@@ -108,9 +139,17 @@
     <string name="msg_default_title">New chat</string>
     <string name="hint_add_model">Tap + in the top right to add a model</string>
     <string name="btn_add_custom_model">Add custom model</string>
-
-    <!-- Input dialog -->
     <string name="dlg_rename_title">Rename conversation</string>
     <string name="dlg_ok">OK</string>
     <string name="dlg_cancel">Cancel</string>
+    <string name="boot_loading">OAC starting…</string>
+    <string name="boot_title">Select network layer</string>
+    <string name="boot_mode_23">Android 2.3+ (normal device)</string>
+    <string name="boot_mode_21">Android 2.1 (old device)</string>
+    <string name="set_net_mode">Network layer</string>
+    <string name="set_net_mode_summary">okhttp (Android 2.3+) or legacy layer (Android 2.1)</string>
+    <string name="net_mode_okhttp">okhttp (Android 2.3+)</string>
+    <string name="net_mode_legacy">Legacy layer (Android 2.1)</string>
+    <string name="net_mode_title">Select network layer</string>
+    <string name="net_mode_switched">Switched to %1$s, applies on next request</string>
 </resources>

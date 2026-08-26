@@ -1,203 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="@color/bg_main">
-
-    <!-- 顶部栏 -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="44dp"
-        android:background="@drawable/bg_top_bar"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <Button
-            android:id="@+id/btn_back"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@null"
-            android:textColor="@color/text_white"
-            android:textSize="22sp"
-            android:text="&lt;"
-            android:padding="0dp" />
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="@string/settings_title"
-            style="@style/TopBarText" />
-
-        <Button
-            android:id="@+id/btn_add_model"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@null"
-            android:textColor="@color/text_white"
-            android:textSize="22sp"
-            android:text="+"
-            android:padding="0dp" />
+<LinearLayout android:orientation="vertical" android:background="@color/bg_main" android:layout_width="fill_parent" android:layout_height="fill_parent"
+  xmlns:android="http://schemas.android.com/apk/res/android">
+    <LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:background="@drawable/bg_top_bar" android:layout_width="fill_parent" android:layout_height="44.0dip">
+        <Button android:textSize="22.0sp" android:textColor="@color/text_white" android:id="@id/btn_back" android:background="@null" android:padding="0.0dip" android:layout_width="44.0dip" android:layout_height="44.0dip" android:text="&lt;" />
+        <TextView android:layout_width="0.0dip" android:layout_height="wrap_content" android:text="@string/settings_title" android:layout_weight="1.0" style="@style/TopBarText" />
+        <Button android:textSize="22.0sp" android:textColor="@color/text_white" android:id="@id/btn_add_model" android:background="@null" android:padding="0.0dip" android:layout_width="44.0dip" android:layout_height="44.0dip" android:text="+" />
     </LinearLayout>
-
-    <ScrollView
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:fillViewport="true">
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="12dp">
-
-            <!-- 当前模型 -->
-            <TextView
-                style="@style/SettingsLabel"
-                android:text="@string/set_active_model"
-                android:paddingBottom="4dp" />
-
-            <TextView
-                android:id="@+id/tv_active_model"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                style="@style/SettingsValue"
-                android:background="@drawable/bg_edit"
-                android:padding="10dp"
-                android:text="@string/set_no_active" />
-
-            <!-- 流式输出开关 -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingTop="12dp">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/SettingsLabel"
-                        android:text="@string/set_stream" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/set_stream_summary"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp"
-                        android:paddingTop="2dp" />
+    <ScrollView android:layout_width="fill_parent" android:layout_height="0.0dip" android:fillViewport="true" android:layout_weight="1.0">
+        <LinearLayout android:orientation="vertical" android:padding="12.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content">
+            <TextView android:paddingBottom="4.0dip" android:text="@string/set_active_model" style="@style/SettingsLabel" />
+            <TextView android:id="@id/tv_active_model" android:background="@drawable/bg_edit" android:padding="10.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="@string/set_no_active" style="@style/SettingsValue" />
+            <LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:paddingTop="12.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content">
+                <LinearLayout android:orientation="vertical" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <TextView android:text="@string/set_stream" style="@style/SettingsLabel" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/text_secondary" android:paddingTop="2.0dip" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/set_stream_summary" />
                 </LinearLayout>
-
-                <CheckBox
-                    android:id="@+id/cb_stream"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content" />
+                <CheckBox android:id="@id/cb_stream" android:layout_width="wrap_content" android:layout_height="wrap_content" />
             </LinearLayout>
-
-            <!-- 语言设置 -->
-            <LinearLayout
-                android:id="@+id/row_language"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:paddingTop="12dp">
-
-                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
-
-                    <TextView
-                        style="@style/SettingsLabel"
-                        android:text="@string/set_language" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/set_language_summary"
-                        android:textColor="@color/text_secondary"
-                        android:textSize="12sp"
-                        android:paddingTop="2dp" />
+            <LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:id="@id/row_language" android:paddingTop="12.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content">
+                <LinearLayout android:orientation="vertical" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <TextView android:text="@string/set_language" style="@style/SettingsLabel" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/text_secondary" android:paddingTop="2.0dip" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/set_language_summary" />
                 </LinearLayout>
-
-                <TextView
-                    android:id="@+id/tv_language_value"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/lang_chinese"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    android:paddingRight="4dp" />
+                <TextView android:textSize="14.0sp" android:textColor="@color/text_primary" android:id="@id/tv_language_value" android:paddingRight="4.0dip" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/lang_chinese" />
             </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@drawable/divider"
-                android:layout_marginTop="12dp"
-                android:layout_marginBottom="12dp" />
-
-            <!-- 模型配置列表 -->
-            <TextView
-                style="@style/SettingsLabel"
-                android:text="@string/set_models"
-                android:paddingBottom="6dp" />
-
-            <LinearLayout
-                android:id="@+id/list_models_container"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical" />
-
-            <TextView
-                android:id="@+id/tv_no_models"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center"
-                android:text="@string/hint_add_model"
-                android:textColor="@color/text_secondary"
-                android:textSize="13sp"
-                android:padding="20dp"
-                android:visibility="gone" />
-
-            <Button
-                android:id="@+id/btn_add_model_inline"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="@android:drawable/btn_default"
-                android:text="@string/btn_add_custom_model"
-                android:textColor="@color/text_primary"
-                android:textSize="14sp"
-                android:visibility="gone" />
-
-            <!-- 关于 -->
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:background="@drawable/divider"
-                android:layout_marginTop="12dp"
-                android:layout_marginBottom="12dp" />
-
-            <TextView
-                style="@style/SettingsLabel"
-                android:text="@string/set_about" />
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/set_about_text"
-                android:textColor="@color/text_primary"
-                android:textSize="13sp"
-                android:paddingTop="6dp" />
+            <LinearLayout android:gravity="center_vertical" android:orientation="horizontal" android:id="@+id/row_net_mode" android:paddingTop="12.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content">
+                <LinearLayout android:orientation="vertical" android:layout_width="0.0dip" android:layout_height="wrap_content" android:layout_weight="1.0">
+                    <TextView android:text="@string/set_net_mode" style="@style/SettingsLabel" />
+                    <TextView android:textSize="12.0sp" android:textColor="@color/text_secondary" android:paddingTop="2.0dip" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/set_net_mode_summary" />
+                </LinearLayout>
+                <TextView android:textSize="14.0sp" android:textColor="@color/text_primary" android:id="@+id/tv_net_mode_value" android:paddingRight="4.0dip" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/net_mode_okhttp" />
+            </LinearLayout>
+            <View android:background="@drawable/divider" android:layout_width="fill_parent" android:layout_height="1.0dip" android:layout_marginTop="12.0dip" android:layout_marginBottom="12.0dip" />
+            <TextView android:paddingBottom="6.0dip" android:text="@string/set_models" style="@style/SettingsLabel" />
+            <LinearLayout android:orientation="vertical" android:id="@id/list_models_container" android:layout_width="fill_parent" android:layout_height="wrap_content" />
+            <TextView android:textSize="13.0sp" android:textColor="@color/text_secondary" android:layout_gravity="center" android:id="@id/tv_no_models" android:padding="20.0dip" android:visibility="gone" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/hint_add_model" />
+            <Button android:textSize="14.0sp" android:textColor="@color/text_primary" android:id="@id/btn_add_model_inline" android:background="@android:drawable/btn_default" android:visibility="gone" android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="@string/btn_add_custom_model" />
+            <View android:background="@drawable/divider" android:layout_width="fill_parent" android:layout_height="1.0dip" android:layout_marginTop="12.0dip" android:layout_marginBottom="12.0dip" />
+            <TextView android:text="@string/set_about" style="@style/SettingsLabel" />
+            <TextView android:textSize="13.0sp" android:textColor="@color/text_primary" android:paddingTop="6.0dip" android:layout_width="fill_parent" android:layout_height="wrap_content" android:text="@string/set_about_text" />
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
