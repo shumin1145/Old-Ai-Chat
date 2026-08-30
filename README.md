@@ -43,7 +43,7 @@
 
 ## 🚀 快速开始
 
-1. 下载最新 APK（见 [Releases](https://github.com/shumin1145/Old-Ai-Chat/releases）
+1. 下载最新 APK（见 [Releases](https://github.com/shumin1145/Old-Ai-Chat/releases)）
 2. 安装到设备
 3. 在设置中配置 API Key（可选使用默认公共 API）
 4. 开始对话！
